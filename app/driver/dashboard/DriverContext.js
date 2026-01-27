@@ -80,6 +80,46 @@ export function DriverProvider({ children }) {
         }
     }, [status, fetchInitialData]);
     
+    const locationIntervalRef = useRef(null);
+
+    const updateLocation = useCallback(async (position) => {
+        const { latitude, longitude, speed, heading, accuracy } = position.coords;
+        try {
+            await fetch('/api/driver/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lat: latitude,
+                    lng: longitude,
+                    speed: speed || 0,
+                    heading: heading || 0,
+                    accuracy: accuracy || 0
+                })
+            });
+        } catch (error) {
+            console.error('Failed to update location:', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTrip && activeTrip.status === 'ONGOING') {
+            // Request permission and start tracking
+            if ('geolocation' in navigator) {
+                const watchId = navigator.geolocation.watchPosition(
+                    updateLocation,
+                    (error) => console.error('Geolocation error:', error),
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 5000,
+                        timeout: 10000
+                    }
+                );
+
+                return () => navigator.geolocation.clearWatch(watchId);
+            }
+        }
+    }, [activeTrip, updateLocation]);
+
     return (
         <DriverContext.Provider value={{
             route, setRoute,

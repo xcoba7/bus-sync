@@ -224,12 +224,17 @@ export default function ParentOverview() {
                 />
 
                 {/* Floating Status Badge */}
-                <div className="absolute top-6 left-6 flex items-center gap-2">
-                    <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-full  border border-white/50 flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full ${busLocation ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-                        <span className="text-xs  uppercase tracking-widest text-slate-600">
-                            {busLocation ? 'Bus Active' : 'No active rides'}
-                        </span>
+                <div className="absolute top-6 left-6 flex flex-col gap-2">
+                    <div className="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-white/50 flex items-center gap-3 animate-in slide-in-from-left-4 duration-500">
+                        <div className={`w-3 h-3 rounded-full ${busLocation ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]'}`} />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 leading-none mb-0.5">
+                                Tracking Status
+                            </span>
+                            <span className="text-sm font-semibold text-slate-900 leading-none">
+                                {busLocation ? 'Live • On Route' : 'Waiting for Data'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
