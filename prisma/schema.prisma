@@ -1,0 +1,605 @@
+// Bus Sync - Multi-Tenant SaaS for Any Organization
+// Organizations = Schools, Churches, Companies, Camps, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  SUPER_ADMIN  // Platform owner (you)
+  ADMIN        // Organization administrator
+  DRIVER       // Bus driver
+  PARENT       // Passenger parent/guardian (or employee for company shuttles)
+}
+
+enum OrganizationType {
+  SCHOOL
+  CHURCH
+  COMPANY
+  CAMP
+  UNIVERSITY
+  HOTEL
+  TRANSPORTATION_SERVICE
+  OTHER
+}
+
+enum TripStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum BusStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum NotificationType {
+  BUS_APPROACHING
+  STUDENT_BOARDED
+  STUDENT_DROPPED
+  STUDENT_ABSENT
+  TRIP_STARTED
+  TRIP_COMPLETED
+  ROUTE_DELAYED
+  EMERGENCY_ALERT
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+// ============================================
+// ORGANIZATION - PRIMARY TENANT
+// ============================================
+
+model Organization {
+  id          String           @id @default(cuid())
+  name        String
+  type        OrganizationType @default(OTHER)
+  address     String?
+  lat         Float?
+  lng         Float?
+  phone       String?
+  email       String?
+  website     String?
+  logo        String?
+  
+  // SaaS Subscription
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  subscriptionPlan   SubscriptionPlan   @default(FREE)
+  subscriptionStart  DateTime?
+  subscriptionEnd    DateTime?
+  trialEndsAt        DateTime?
+  
+  // Plan Limits
+  maxBuses           Int                @default(5)
+  maxStudents        Int                @default(100)
+  maxDrivers         Int                @default(10)
+  maxAdmins          Int                @default(2)
+  
+  // Features (can be toggled per plan)
+  hasSmsNotifications Boolean           @default(false)
+  hasAdvancedAnalytics Boolean          @default(false)
+  hasWhiteLabel       Boolean           @default(false)
+  hasApiAccess        Boolean           @default(false)
+  
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  // Relations
+  users       User[]
+  buses       Bus[]
+  routes      Route[]
+  passengers  Passenger[]      // Instead of "students" - more generic
+  trips       Trip[]
+  schedules   Schedule[]
+
+  @@index([isActive])
+  @@index([subscriptionStatus])
+  @@index([type])
+  @@map("organizations")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id             String         @id @default(cuid())
+  name           String
+  email          String         @unique
+  phone          String?        @unique
+  password       String
+  role           Role
+  profileImage   String?
+  isActive       Boolean        @default(true)
+  
+  // Organization link (null only for SUPER_ADMIN)
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Email verification
+  emailVerified  Boolean        @default(false)
+  verificationToken String?
+  
+  // Password reset
+  resetToken     String?
+  resetTokenExpiry DateTime?
+  
+  // Last login tracking
+  lastLoginAt    DateTime?
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  // Relations
+  passengers     Passenger[]    // For parents/guardians
+  notifications  Notification[]
+  driver         Driver?
+
+  @@index([email])
+  @@index([role])
+  @@index([organizationId])
+  @@index([organizationId, role])
+  @@map("users")
+}
+
+// ============================================
+// DRIVER EXTENSION
+// ============================================
+
+model Driver {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  licenseNumber    String    @unique
+  licenseExpiry    DateTime?
+  emergencyContact String?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Relations
+  buses            Bus[]
+  trips            Trip[]
+  schedules        Schedule[]
+
+  @@index([userId])
+  @@index([licenseNumber])
+  @@map("drivers")
+}
+
+// ============================================
+// PASSENGER MANAGEMENT (Generic term)
+// Replaces "Student" - works for students, employees, campers, etc.
+// ============================================
+
+model Passenger {
+  id             String       @id @default(cuid())
+  name           String
+  
+  // Optional fields based on org type
+  grade          String?      // For schools
+  rollNumber     String?      // For schools
+  employeeId     String?      // For companies
+  department     String?      // For companies
+  age            Int?         // For camps, churches
+  
+  // Guardian/Parent relationship
+  guardianId     String
+  guardian       User         @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  
+  // Organization ownership
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Bus/Route assignment
+  busId          String?
+  bus            Bus?         @relation(fields: [busId], references: [id], onDelete: SetNull)
+  routeId        String?
+  route          Route?       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  
+  // Transit location
+  address        String
+  lat            Float
+  lng            Float
+  
+  // QR code for attendance
+  qrCode         String       @unique @default(cuid())
+  
+  // Emergency contact
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  
+  // Medical info (optional)
+  medicalNotes   String?
+  allergies      String?
+  
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Relations
+  attendance     Attendance[]
+
+  @@index([guardianId])
+  @@index([organizationId])
+  @@index([busId])
+  @@index([routeId])
+  @@index([qrCode])
+  @@index([rollNumber])
+  @@index([employeeId])
+  @@index([organizationId, isActive])
+  @@map("passengers")
+}
+
+// ============================================
+// BUS FLEET MANAGEMENT
+// ============================================
+
+model Bus {
+  id                  String       @id @default(cuid())
+  busNumber           String       @unique
+  licensePlate        String       @unique
+  capacity            Int
+  model               String?
+  year                Int?
+  status              BusStatus    @default(ACTIVE)
+  
+  // Driver assignment
+  driverId            String?
+  driver              Driver?      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  
+  // Organization ownership
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Maintenance tracking
+  lastMaintenanceDate DateTime?
+  nextMaintenanceDue  DateTime?
+  maintenanceNotes    String?
+  
+  // Insurance & Registration
+  insuranceExpiry     DateTime?
+  registrationExpiry  DateTime?
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  
+  // Relations
+  routes              Route[]
+  passengers          Passenger[]
+  trips               Trip[]
+  schedules           Schedule[]
+
+  @@index([driverId])
+  @@index([organizationId])
+  @@index([busNumber])
+  @@index([licensePlate])
+  @@index([status])
+  @@index([organizationId, status])
+  @@map("buses")
+}
+
+// ============================================
+// ROUTE MANAGEMENT
+// ============================================
+
+model Route {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  
+  // Bus assignment
+  busId          String
+  bus            Bus          @relation(fields: [busId], references: [id], onDelete: Cascade)
+  
+  // Organization ownership
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Route stops as JSON
+  // Format: [{address: "123 Main St", lat: 40.7, lng: -74.0, order: 1, estimatedTime: "07:30", stopName: "Main Street Stop"}]
+  stops          Json
+  
+  // Schedule
+  startTime      String?      // e.g., "07:00 AM"
+  endTime        String?      // e.g., "08:30 AM"
+  
+  // Days of operation (for recurring routes)
+  operatingDays  Json?        // e.g., ["monday", "tuesday", "wednesday", "thursday", "friday"]
+  
+  // Route type (for companies: to office, from office, etc.)
+  routeType      String?      // e.g., "morning_pickup", "afternoon_dropoff", "shuttle_loop"
+  
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  // Relations
+  passengers     Passenger[]
+  trips          Trip[]
+  schedules      Schedule[]
+
+  @@index([busId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([organizationId, isActive])
+  @@map("routes")
+}
+
+// ============================================
+// SCHEDULE MANAGEMENT
+// ============================================
+
+model Schedule {
+  id               String       @id @default(cuid())
+  
+  // Schedule assignments
+  routeId          String
+  route            Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  busId            String
+  bus              Bus          @relation(fields: [busId], references: [id], onDelete: Cascade)
+  driverId         String
+  driver           Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  // Organization ownership
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Schedule details
+  boardingTime     String       // e.g., "07:30 AM"
+  operatingDays    Json         // e.g., ["monday", "tuesday", "wednesday", "thursday", "friday"]
+  
+  // Status
+  isActive         Boolean      @default(true)
+  
+  // Track last generation to prevent duplicates
+  lastGeneratedDate DateTime?
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  
+  // Relations
+  trips            Trip[]
+
+  @@index([routeId])
+  @@index([busId])
+  @@index([driverId])
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([organizationId, isActive])
+  @@map("schedules")
+}
+
+// ============================================
+// TRIP & TRACKING
+// ============================================
+
+model Trip {
+  id               String               @id @default(cuid())
+  
+  // Trip assignments
+  busId            String
+  bus              Bus                  @relation(fields: [busId], references: [id], onDelete: Cascade)
+  driverId         String
+  driver           Driver               @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  routeId          String?
+  route            Route?               @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  
+  // Link to schedule (if auto-generated)
+  scheduleId       String?
+  schedule         Schedule?            @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  
+  // Organization ownership
+  organizationId   String
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  status           TripStatus           @default(SCHEDULED)
+  
+  // Time tracking
+  scheduledStart   DateTime?
+  actualStart      DateTime?
+  actualEnd        DateTime?
+  
+  // Real-time location
+  currentLat       Float?
+  currentLng       Float?
+  lastLocationTime DateTime?
+  
+  // Trip metrics
+  distanceCovered     Float?               // kilometers
+  estimatedDuration   Int?                 // minutes (based on route distance from Google Maps)
+  
+  // Trip notes (incidents, delays, etc.)
+  notes            String?
+  
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  
+  // Relations
+  attendanceRecords Attendance[]
+  locationHistory   BusLocationHistory[]
+
+  @@index([busId])
+  @@index([driverId])
+  @@index([routeId])
+  @@index([scheduleId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledStart])
+  @@index([actualStart])
+  @@index([organizationId, status])
+  @@index([organizationId, scheduledStart])
+  @@map("trips")
+}
+
+// ============================================
+// GPS TRACKING HISTORY
+// ============================================
+
+model BusLocationHistory {
+  id        String   @id @default(cuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  
+  lat       Float
+  lng       Float
+  speed     Float?   // km/h
+  heading   Float?   // degrees (0-360)
+  accuracy  Float?   // meters
+  
+  timestamp DateTime @default(now())
+
+  @@index([tripId, timestamp])
+  @@index([timestamp])
+  @@map("bus_location_history")
+}
+
+// ============================================
+// ATTENDANCE SYSTEM
+// ============================================
+
+model Attendance {
+  id          String    @id @default(cuid())
+  tripId      String
+  trip        Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  passengerId String
+  passenger   Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  
+  // Boarding info
+  boardedAt   DateTime?
+  boardedLat  Float?
+  boardedLng  Float?
+  
+  // Dropoff info
+  droppedAt   DateTime?
+  droppedLat  Float?
+  droppedLng  Float?
+  
+  // Status
+  status      String?   // PRESENT, ABSENT, AWAITING
+  notes       String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([tripId, passengerId])
+  @@index([tripId])
+  @@index([passengerId])
+  @@index([boardedAt])
+  @@map("attendance")
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      NotificationType
+  title     String
+  message   String
+  metadata  Json?            // {tripId, passengerId, busId, etc.}
+  
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// AUDIT TRAIL
+// ============================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  
+  // Who
+  userId         String?
+  userName       String
+  userRole       Role
+  
+  // What
+  action         String   // e.g., "CREATE_PASSENGER", "UPDATE_BUS", "DELETE_ROUTE"
+  entityType     String   // e.g., "Passenger", "Bus", "Trip"
+  entityId       String?
+  
+  // Context
+  organizationId String?
+  details        Json?    // Before/after states, additional info
+  ipAddress      String?
+  userAgent      String?
+  
+  timestamp      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([action])
+  @@index([timestamp])
+  @@index([organizationId, timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================
+// BILLING (Optional - for future)
+// ============================================
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  
+  amount         Float
+  currency       String   @default("USD")
+  status         String   // PENDING, PAID, OVERDUE, CANCELLED
+  
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  
+  dueDate        DateTime
+  paidAt         DateTime?
+  
+  invoiceNumber  String   @unique
+  
+  // Line items as JSON
+  lineItems      Json     // [{description: "Basic Plan", quantity: 1, price: 99}]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
