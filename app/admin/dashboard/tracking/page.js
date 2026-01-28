@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 export default function TrackingPage() {
     const { activeBuses, busesList } = useDashboard();
     const [activeTrips, setActiveTrips] = useState([]);
+    const [routeMetrics, setRouteMetrics] = useState({});
 
     // Fetch active trips with route information
     useEffect(() => {
@@ -109,6 +110,14 @@ export default function TrackingPage() {
                     origin={tripWithRoute?.route?.stops?.[0]}
                     destination={tripWithRoute?.route?.stops?.[tripWithRoute.route.stops.length - 1]}
                     waypoints={tripWithRoute?.route?.stops?.slice(1, -1) || []}
+                    onDirectionsLoaded={(metrics) => {
+                        if (tripWithRoute) {
+                            setRouteMetrics(prev => ({
+                                ...prev,
+                                [tripWithRoute.id]: metrics
+                            }));
+                        }
+                    }}
                 />
 
                 {/* Overlay Stats */}
@@ -158,6 +167,30 @@ export default function TrackingPage() {
                                             <span className="text-xs text-emerald-600 font-bold">Live</span>
                                         </div>
                                     </div>
+
+                                    {/* Progress Metrics */}
+                                    {activeTrips.find(t => t.busId === bus.id) && (
+                                        <div className="mt-2 pl-10">
+                                            {routeMetrics[activeTrips.find(t => t.busId === bus.id).id] ? (
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between text-[10px] text-slate-500">
+                                                        <span>ETA: {routeMetrics[activeTrips.find(t => t.busId === bus.id).id].durationMinutes} mins</span>
+                                                        <span>{routeMetrics[activeTrips.find(t => t.busId === bus.id).id].distanceKm} km</span>
+                                                    </div>
+                                                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-blue-500 transition-all duration-1000"
+                                                            style={{
+                                                                width: `${Math.min(100, Math.max(5, (activeTrips.find(t => t.busId === bus.id).attendanceRecords?.filter(a => a.boardedAt).length / Math.max(1, activeTrips.find(t => t.busId === bus.id).route?._count?.passengers || 1)) * 100))}%`
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-slate-400 italic">Calculating route...</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

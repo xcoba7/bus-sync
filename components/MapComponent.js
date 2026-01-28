@@ -24,7 +24,7 @@ export default function MapComponent({
     onDirectionsLoaded = null, // Callback to pass distance data
 }) {
     const [directions, setDirections] = useState(null);
-    
+
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     });
@@ -49,16 +49,22 @@ export default function MapComponent({
                     if (status === window.google.maps.DirectionsStatus.OK) {
                         setDirections(result);
 
-                        // Calculate total distance from all legs
+                        // Calculate total distance and ETA from all legs
                         if (onDirectionsLoaded && result.routes[0]) {
                             const totalDistance = result.routes[0].legs.reduce((sum, leg) => {
                                 return sum + (leg.distance?.value || 0); // distance in meters
                             }, 0);
 
-                            // Pass distance in kilometers
+                            const totalDuration = result.routes[0].legs.reduce((sum, leg) => {
+                                return sum + (leg.duration?.value || 0); // duration in seconds
+                            }, 0);
+
+                            // Pass distance and duration data
                             onDirectionsLoaded({
-                                distanceKm: totalDistance / 1000,
-                                distanceMeters: totalDistance
+                                distanceKm: parseFloat((totalDistance / 1000).toFixed(2)),
+                                distanceMeters: totalDistance,
+                                durationMinutes: Math.round(totalDuration / 60),
+                                legs: result.routes[0].legs
                             });
                         }
                     } else {

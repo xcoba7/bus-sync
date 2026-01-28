@@ -30,6 +30,7 @@ function DashboardLayoutContent({ children }) {
         { id: 'drivers', label: 'Driver Management', path: '/admin/dashboard/drivers', icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
         { id: 'fleet', label: 'Fleet Management', path: '/admin/dashboard/fleet', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
         { id: 'tracking', label: 'Live Tracking', path: '/admin/dashboard/tracking', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
+        { id: 'communications', label: 'Communications', path: '/admin/dashboard/communications', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
     ];
 
     const activeView = navItems.find(item => pathname === item.path)?.id || 'overview';

@@ -13,10 +13,14 @@ import {
     Activity,
     MapPin,
     ArrowRight,
-    History as HistoryIcon
+    History as HistoryIcon,
+    AlertTriangle,
+    Clock,
+    Send
 } from 'lucide-react';
 import { useDriver } from './DriverContext';
 import { getStatusColor } from './history/page';
+import { sendEmergencyAlert, sendBroadcast } from '@/lib/notification-manager';
 
 export default function DriverOverview() {
     const {
@@ -79,6 +83,23 @@ export default function DriverOverview() {
         }
     };
 
+    const handleEmergencyAlert = async () => {
+        if (confirm('Are you sure you want to trigger an EMERGENCY ALERT? This will notify all administrators immediately.')) {
+            const res = await sendEmergencyAlert('EMERGENCY: Assistance needed immediately!');
+            if (res.success) alert('Emergency alert sent!');
+            else alert('Failed to send alert');
+        }
+    };
+
+    const handleReportDelay = async () => {
+        const minutes = prompt('Estimated delay in minutes:', '15');
+        if (minutes) {
+            const res = await sendBroadcast('Route Delayed', `Bus ${activeTrip?.bus?.busNumber || ''} is experiencing a delay of approximately ${minutes} minutes.`, 'PARENTS');
+            if (res.success) alert('Delay reported to parents');
+            else alert('Failed to report delay');
+        }
+    };
+
     return (
         <>
             {/* Stats Cards */}
@@ -112,26 +133,41 @@ export default function DriverOverview() {
             </div>
 
             {/* Active Trip Banner */}
-            {activeTrip && (
-                <div className="rounded-[2rem] p-6 bg-black text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs uppercase tracking-widest opacity-90 mb-1">Scheduled Trip</p>
-                            <h3 className="text-2xl ">{route?.name}</h3>
-                            <p className="text-sm opacity-90 mt-1">
-                                {students.filter(s => s.attendanceRecords?.some(a => a.tripId === activeTrip.id && a.boardedAt)).length}/{students.length} passengers boarded
-                            </p>
-                        </div>
+            <div className="rounded-[2rem] p-6 bg-black text-white">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <p className="text-xs uppercase tracking-widest opacity-90 mb-1">Scheduled Trip</p>
+                        <h3 className="text-2xl ">{route?.name}</h3>
+                        <p className="text-sm opacity-90 mt-1">
+                            {students.filter(s => s.attendanceRecords?.some(a => a.tripId === activeTrip.id && a.boardedAt)).length}/{students.length} passengers boarded
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                        <button
+                            onClick={handleEmergencyAlert}
+                            className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs uppercase font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
+                        >
+                            <AlertTriangle className="w-4 h-4" />
+                            Emergency
+                        </button>
+                        <button
+                            onClick={handleReportDelay}
+                            className="bg-amber-500 text-white px-4 py-2 rounded-xl text-xs uppercase font-bold hover:bg-amber-600 transition-colors flex items-center gap-2"
+                        >
+                            <Clock className="w-4 h-4" />
+                            Report Delay
+                        </button>
                         <Link
                             href="/driver/dashboard/route"
-                            className="bg-white text-black px-6 py-3 rounded-2xl  text-xs uppercase  hover:scale-105 transition-all flex items-center gap-2"
+                            className="bg-white text-black px-6 py-3 rounded-2xl text-xs uppercase hover:scale-105 transition-all flex items-center gap-2"
                         >
                             View Route
                             <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Recent Trip History */}
             <section className="rounded-[2rem] border border-slate-200 overflow-hidden">
@@ -209,7 +245,7 @@ export default function DriverOverview() {
                 )}
             </section>
 
-            
+
         </>
     );
 }

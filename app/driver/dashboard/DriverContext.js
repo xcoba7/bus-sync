@@ -36,7 +36,7 @@ export function DriverProvider({ children }) {
                 fetch('/api/driver/vehicle'),
                 fetch('/api/notifications')
             ]);
-            
+
             if (routeRes.ok) {
                 const data = await routeRes.json();
                 setRoute(data.route);
@@ -45,7 +45,7 @@ export function DriverProvider({ children }) {
             }
             if (schedulesRes.ok) {
                 const sData = await schedulesRes.json();
-                console.log({sData})
+                console.log({ sData })
                 setScheduledTrips(sData.trips || []);
             }
             if (statsRes.ok) {
@@ -79,7 +79,7 @@ export function DriverProvider({ children }) {
             return () => clearInterval(interval);
         }
     }, [status, fetchInitialData]);
-    
+
     const locationIntervalRef = useRef(null);
 
     const updateLocation = useCallback(async (position) => {
@@ -110,8 +110,8 @@ export function DriverProvider({ children }) {
                     (error) => console.error('Geolocation error:', error),
                     {
                         enableHighAccuracy: true,
-                        maximumAge: 5000,
-                        timeout: 10000
+                        maximumAge: 0, // Force fresh location
+                        timeout: 5000  // Faster timeout for better responsiveness
                     }
                 );
 

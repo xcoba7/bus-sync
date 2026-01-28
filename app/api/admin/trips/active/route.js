@@ -18,10 +18,20 @@ export async function GET(request) {
                 status: 'ONGOING'
             },
             include: {
+                attendanceRecords: {
+                    select: {
+                        id: true,
+                        boardedAt: true,
+                        droppedAt: true,
+                    }
+                },
                 route: {
                     include: {
                         stops: {
                             orderBy: { order: 'asc' }
+                        },
+                        _count: {
+                            select: { passengers: true }
                         }
                     }
                 },
