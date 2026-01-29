@@ -1,11 +1,10 @@
-'use client';
-
-import { useParentDashboard } from './ParentDashboardContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import MapComponent from '@/components/MapComponent';
 import { getTerminology } from '@/lib/terminology';
+import { getPusherClient } from '@/lib/pusher-client';
+
 import NotificationPanel from '@/components/NotificationPanel';
 import { calculateDistance, calculateETA } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
@@ -35,6 +34,13 @@ export default function ParentOverview() {
     const [distance, setDistance] = useState(null);
     const [orgType, setOrgType] = useState('OTHER');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const selectedStudentRef = useRef(selectedStudent);
+
+    // Keep ref in sync for Pusher callback
+    useEffect(() => {
+        selectedStudentRef.current = selectedStudent;
+    }, [selectedStudent]);
+
 
     // Absence Reporting State
     const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -110,11 +116,36 @@ export default function ParentOverview() {
 
     useEffect(() => {
         if (selectedStudent?.busId) {
-            const interval = setInterval(fetchBusLocation, 5000);
+            const interval = setInterval(fetchBusLocation, 15000); // Polling as fallback (slowed)
             fetchBusLocation();
+
+            // Pusher Real-time Tracking
+            const pusher = getPusherClient();
+            if (pusher) {
+                const channel = pusher.subscribe('tracking-channel');
+                channel.bind('bus-location-update', (data) => {
+                    // Only update if it's the bus assigned to the CURRENT selected student
+                    if (selectedStudentRef.current?.busId === data.busId) {
+                        setBusLocation({
+                            lat: data.lat,
+                            lng: data.lng,
+                            timestamp: data.updatedAt
+                        });
+                        console.log('📍 Real-time bus update received for parent');
+                    }
+                });
+
+                return () => {
+                    pusher.unsubscribe('tracking-channel');
+                    clearInterval(interval);
+                };
+            }
+
             return () => clearInterval(interval);
         }
-    }, [selectedStudent, fetchBusLocation]);
+    }, [selectedStudent?.busId, fetchBusLocation]);
+
+
 
     const markers = [];
     if (busLocation) {

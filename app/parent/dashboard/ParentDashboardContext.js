@@ -68,30 +68,29 @@ export function ParentDashboardProvider({ children }) {
         } else if (status === 'authenticated' && session.user.role !== 'PARENT') {
             router.push('/');
         } else if (status === 'authenticated') {
-            fetchData();
+            // Polling for updates every 30 seconds as fallback
+            const interval = setInterval(fetchData, 30000);
 
             // Pusher Real-time Notifications
             const pusher = getPusherClient();
+            let channel = null;
             if (pusher && session?.user?.id) {
-                const channel = pusher.subscribe(`notifications-${session.user.id}`);
+                channel = pusher.subscribe(`notifications-${session.user.id}`);
                 channel.bind('new-notification', (data) => {
                     setNotifications(prev => [data, ...prev]);
-                    // Optional: Show browser notification
                     if (window.Notification && Notification.permission === 'granted') {
                         new Notification(data.title, { body: data.message });
                     }
                 });
-
-                return () => {
-                    pusher.unsubscribe(`notifications-${session.user.id}`);
-                };
             }
 
-            // Poll for updates every 30 seconds as fallback
-            const interval = setInterval(fetchData, 30000);
-            return () => clearInterval(interval);
+            return () => {
+                if (channel) pusher.unsubscribe(`notifications-${session.user.id}`);
+                clearInterval(interval);
+            };
         }
     }, [status, router, session, fetchData]);
+
 
 
 
