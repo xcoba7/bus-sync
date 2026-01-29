@@ -33,10 +33,20 @@ export default function MapComponent({
         if (showDirections && origin && destination && window.google?.maps?.DirectionsService) {
             const directionsService = new window.google.maps.DirectionsService();
 
-            const waypointsFormatted = waypoints.map(point => ({
-                location: { lat: point.lat, lng: point.lng },
-                stopover: true,
-            }));
+            // Validate coordinates before requesting
+            const isValidCoord = (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number';
+
+            if (!isValidCoord(origin) || !isValidCoord(destination)) {
+                console.warn('📍 MapComponent: Invalid origin or destination coordinates');
+                return;
+            }
+
+            const waypointsFormatted = waypoints
+                .filter(isValidCoord)
+                .map(point => ({
+                    location: { lat: point.lat, lng: point.lng },
+                    stopover: true,
+                }));
 
             directionsService.route(
                 {
@@ -67,13 +77,18 @@ export default function MapComponent({
                                 legs: result.routes[0].legs
                             });
                         }
+                    } else if (status === window.google.maps.DirectionsStatus.ZERO_RESULTS) {
+                        console.warn('🚏 No driving route found between these points (ZERO_RESULTS)');
+                        setDirections(null);
                     } else {
-                        console.error('Directions request failed:', status);
+                        console.error('❌ Directions request failed:', status);
+                        setDirections(null);
                     }
                 }
             );
         }
     }, [showDirections, origin, destination, waypoints, onDirectionsLoaded]);
+
 
     if (loadError) {
         return (

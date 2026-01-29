@@ -25,8 +25,9 @@ import { sendEmergencyAlert, sendBroadcast } from '@/lib/notification-manager';
 export default function DriverOverview() {
     const {
         route, students, activeTrip, scheduledTrips,
-        fetchInitialData, stats
+        fetchInitialData, stats, geoError, setGeoError
     } = useDriver();
+
 
     const [recentTrips, setRecentTrips] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
@@ -101,7 +102,17 @@ export default function DriverOverview() {
     };
 
     return (
-        <>
+        <div className="space-y-6">
+            {/* GPS Error Alert */}
+            {geoError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 animate-in slide-in-from-top-4">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                    <div className="flex-1 text-sm font-medium">
+                        {geoError}
+                    </div>
+                </div>
+            )}
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
@@ -246,6 +257,6 @@ export default function DriverOverview() {
             </section>
 
 
-        </>
+        </div>
     );
 }

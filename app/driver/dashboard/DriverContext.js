@@ -17,7 +17,9 @@ export function DriverProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
     const [scanResult, setScanResult] = useState(null);
+    const [geoError, setGeoError] = useState(null);
     const scannerRef = useRef(null);
+
 
     // New state for enhanced dashboard
     const [driverProfile, setDriverProfile] = useState(null);
@@ -108,7 +110,25 @@ export function DriverProvider({ children }) {
             if ('geolocation' in navigator) {
                 const watchId = navigator.geolocation.watchPosition(
                     updateLocation,
-                    (error) => console.error('Geolocation error:', error),
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        let message = 'GPS Error: ';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                message += 'Permission denied. Please enable location access.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                message += 'Location information unavailable.';
+                                break;
+                            case error.TIMEOUT:
+                                message += 'GPS request timed out.';
+                                break;
+                            default:
+                                message += 'An unknown error occurred.';
+                        }
+                        setGeoError(message);
+                    },
+
                     {
                         enableHighAccuracy: true,
                         maximumAge: 0, // Force fresh location
@@ -137,8 +157,10 @@ export function DriverProvider({ children }) {
             stats, setStats,
             vehicleInfo, setVehicleInfo,
             notifications, setNotifications,
-            unreadNotifications, setUnreadNotifications
+            unreadNotifications, setUnreadNotifications,
+            geoError, setGeoError
         }}>
+
             {children}
         </DriverContext.Provider>
     );
