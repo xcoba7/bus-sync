@@ -28,9 +28,10 @@ export function DashboardProvider({ children }) {
     const fetchData = useCallback(async () => {
         try {
             const [statsRes, notificationsRes] = await Promise.all([
-                fetch('/api/admin/stats'),
-                fetch('/api/notifications'),
+                fetch('/api/admin/stats', { cache: 'no-store' }),
+                fetch('/api/notifications', { cache: 'no-store' }),
             ]);
+
 
             if (statsRes.ok) {
                 const data = await statsRes.json();
@@ -57,11 +58,12 @@ export function DashboardProvider({ children }) {
     const fetchResources = useCallback(async () => {
         try {
             const [sRes, dRes, bRes, rRes] = await Promise.all([
-                fetch('/api/admin/students'),
-                fetch('/api/admin/drivers'),
-                fetch('/api/admin/buses'),
-                fetch('/api/admin/routes')
+                fetch('/api/admin/students', { cache: 'no-store' }),
+                fetch('/api/admin/drivers', { cache: 'no-store' }),
+                fetch('/api/admin/buses', { cache: 'no-store' }),
+                fetch('/api/admin/routes', { cache: 'no-store' })
             ]);
+
             if (sRes.ok) {
                 const data = await sRes.json();
                 setStudentsList(data.passengers || []);

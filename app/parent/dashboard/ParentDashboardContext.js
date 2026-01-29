@@ -21,7 +21,7 @@ export function ParentDashboardProvider({ children }) {
     const fetchData = useCallback(async () => {
         try {
             // Fetch profile
-            const profileRes = await fetch('/api/parent/profile');
+            const profileRes = await fetch('/api/parent/profile', { cache: 'no-store' });
             if (profileRes.ok) {
                 const data = await profileRes.json();
                 setProfile(data.profile);
@@ -30,14 +30,14 @@ export function ParentDashboardProvider({ children }) {
             }
 
             // Fetch students
-            const studentsRes = await fetch('/api/parent/students');
+            const studentsRes = await fetch('/api/parent/students', { cache: 'no-store' });
             if (studentsRes.ok) {
                 const data = await studentsRes.json();
                 setStudents(data.students || []);
             }
 
             // Fetch notifications
-            const notifRes = await fetch('/api/notifications');
+            const notifRes = await fetch('/api/notifications', { cache: 'no-store' });
             if (notifRes.ok) {
                 const data = await notifRes.json();
                 setNotifications(data.notifications || []);
@@ -45,7 +45,8 @@ export function ParentDashboardProvider({ children }) {
 
             // Fetch stats (we can reuse trip history or create a dedicated stats endpoint later)
             // For now, calculating from recent activity if possible or placeholder
-            const historyRes = await fetch('/api/parent/trip-history');
+            const historyRes = await fetch('/api/parent/trip-history', { cache: 'no-store' });
+
             if (historyRes.ok) {
                 const data = await historyRes.json();
                 // Simple stats for now

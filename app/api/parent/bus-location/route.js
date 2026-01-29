@@ -41,8 +41,9 @@ export async function GET(request) {
                 }
             },
             orderBy: {
-                scheduledStart: 'desc',
+                actualStart: 'desc',
             },
+
         });
 
         if (!activeTrip) {

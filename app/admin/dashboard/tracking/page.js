@@ -14,7 +14,7 @@ export default function TrackingPage() {
     useEffect(() => {
         const fetchActiveTrips = async () => {
             try {
-                const response = await fetch('/api/admin/trips/active');
+                const response = await fetch('/api/admin/trips/active', { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     setActiveTrips(data.trips || []);

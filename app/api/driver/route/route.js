@@ -40,8 +40,13 @@ export async function GET(request) {
             },
             include: {
                 attendanceRecords: true,
-                route: true, // Include the route for this specific trip
+                route: true,
             },
+            orderBy: {
+                status: 'asc' // 'ONGOING' (O) comes before 'SCHEDULED' (S)
+            }
+
+
         });
 
         // Get route from active trip, or fall back to bus's first route

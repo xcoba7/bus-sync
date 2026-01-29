@@ -29,13 +29,14 @@ export function DriverProvider({ children }) {
     const fetchInitialData = useCallback(async () => {
         try {
             const [routeRes, schedulesRes, statsRes, profileRes, vehicleRes, notifRes] = await Promise.all([
-                fetch('/api/driver/route'),
-                fetch('/api/driver/schedules'),
-                fetch('/api/driver/stats'),
-                fetch('/api/driver/profile'),
-                fetch('/api/driver/vehicle'),
-                fetch('/api/notifications')
+                fetch('/api/driver/route', { cache: 'no-store' }),
+                fetch('/api/driver/schedules', { cache: 'no-store' }),
+                fetch('/api/driver/stats', { cache: 'no-store' }),
+                fetch('/api/driver/profile', { cache: 'no-store' }),
+                fetch('/api/driver/vehicle', { cache: 'no-store' }),
+                fetch('/api/notifications', { cache: 'no-store' })
             ]);
+
 
             if (routeRes.ok) {
                 const data = await routeRes.json();

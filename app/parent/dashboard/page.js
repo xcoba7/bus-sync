@@ -1,3 +1,6 @@
+'use client';
+
+import { useParentDashboard } from './ParentDashboardContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
