@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { pusher } from '@/lib/pusher';
 
 export async function POST(request) {
     try {
@@ -48,6 +49,16 @@ export async function POST(request) {
                 },
             }),
         ]);
+
+        await pusher.trigger('tracking-channel', 'bus-location-update', {
+            busId: activeTrip.busId,
+            tripId: activeTrip.id,
+            lat,
+            lng,
+            speed,
+            heading,
+            updatedAt: new Date(),
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -3,6 +3,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateRouteDistance } from '@/lib/googleMapsService';
+import { pusher } from '@/lib/pusher';
+
 
 export async function POST(request) {
     try {
@@ -132,6 +134,16 @@ export async function POST(request) {
         const createdNotifications = await Promise.all(notificationPromises);
         console.log(`✅ Created ${createdNotifications.length} notifications for trip start`);
 
+        // Trigger real-time notifications via Pusher
+        const pusherPromises = createdNotifications.map(notif =>
+            pusher.trigger(`notifications-${notif.userId}`, 'new-notification', {
+                ...notif,
+                createdAt: new Date(),
+            })
+        );
+        await Promise.all(pusherPromises);
+
+
         return NextResponse.json({ trip });
     } catch (error) {
         console.error('Error starting trip:', error);
@@ -230,7 +242,7 @@ export async function PATCH(request) {
 
         // Create notifications for all guardians
         const passengers = driver.buses[0].passengers;
-        await Promise.all(
+        const endNotifications = await Promise.all(
             passengers.map(passenger =>
                 prisma.notification.create({
                     data: {
@@ -249,6 +261,16 @@ export async function PATCH(request) {
                 })
             )
         );
+
+        // Trigger real-time notifications via Pusher for trip completion
+        const endPusherPromises = endNotifications.map(notif =>
+            pusher.trigger(`notifications-${notif.userId}`, 'new-notification', {
+                ...notif,
+                createdAt: new Date(),
+            })
+        );
+        await Promise.all(endPusherPromises);
+
 
         return NextResponse.json({ trip: updatedTrip });
     } catch (error) {

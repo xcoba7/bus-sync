@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { pusher } from '@/lib/pusher';
 
 export async function POST(request) {
     try {
@@ -71,7 +72,7 @@ export async function POST(request) {
                 }
 
                 // Create notification for guardian
-                await prisma.notification.create({
+                const notif = await prisma.notification.create({
                     data: {
                         userId: passenger.guardianId,
                         type: 'STUDENT_BOARDED',
@@ -79,6 +80,13 @@ export async function POST(request) {
                         message: `${passenger.name} has ${type === 'mark-boarded' ? 'been manually marked as' : ''} boarded the bus`,
                     },
                 });
+
+                // Trigger Pusher
+                await pusher.trigger(`notifications-${notif.userId}`, 'new-notification', {
+                    ...notif,
+                    createdAt: new Date(),
+                });
+
             } else if (type === 'mark-absent') {
                 if (attendance) {
                     attendance = await prisma.attendance.update({
@@ -99,7 +107,7 @@ export async function POST(request) {
                 }
 
                 // Create notification for guardian
-                await prisma.notification.create({
+                const absentNotif = await prisma.notification.create({
                     data: {
                         userId: passenger.guardianId,
                         type: 'STUDENT_ABSENT',
@@ -107,6 +115,13 @@ export async function POST(request) {
                         message: `${passenger.name} was marked as absent for the trip.`,
                     },
                 });
+
+                // Trigger Pusher
+                await pusher.trigger(`notifications-${absentNotif.userId}`, 'new-notification', {
+                    ...absentNotif,
+                    createdAt: new Date(),
+                });
+
             } else if (type === 'mark-reset') {
                 if (attendance) {
                     attendance = await prisma.attendance.update({
@@ -141,7 +156,7 @@ export async function POST(request) {
                 }
 
                 // Create notification for guardian
-                await prisma.notification.create({
+                const droppedNotif = await prisma.notification.create({
                     data: {
                         userId: passenger.guardianId,
                         type: 'STUDENT_DROPPED',
@@ -149,6 +164,13 @@ export async function POST(request) {
                         message: `${passenger.name} has been dropped off`,
                     },
                 });
+
+                // Trigger Pusher
+                await pusher.trigger(`notifications-${droppedNotif.userId}`, 'new-notification', {
+                    ...droppedNotif,
+                    createdAt: new Date(),
+                });
+
             }
             results.push(attendance);
         }

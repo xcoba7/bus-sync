@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { timeAgo } from '@/lib/utils';
+import { getPusherClient } from '@/lib/pusher-client';
 
 export default function NotificationPanel({ userId, autoRefresh = true }) {
     const [notifications, setNotifications] = useState([]);
@@ -11,8 +12,31 @@ export default function NotificationPanel({ userId, autoRefresh = true }) {
     useEffect(() => {
         fetchNotifications();
 
+        if (userId) {
+            const pusher = getPusherClient();
+            if (pusher) {
+                const channel = pusher.subscribe(`notifications-${userId}`);
+                channel.bind('new-notification', (data) => {
+                    setNotifications(prev => [data, ...prev]);
+                    setUnreadCount(prev => prev + 1);
+
+                    // Show browser notification if possible
+                    if (window.Notification && Notification.permission === 'granted') {
+                        new Notification(data.title, {
+                            body: data.message,
+                            icon: '/icon-192x192.png'
+                        });
+                    }
+                });
+
+                return () => {
+                    pusher.unsubscribe(`notifications-${userId}`);
+                };
+            }
+        }
+
         if (autoRefresh) {
-            const interval = setInterval(fetchNotifications, 5000); // Poll every 5 seconds
+            const interval = setInterval(fetchNotifications, 15000); // Polling as fallback (slowed down)
             return () => clearInterval(interval);
         }
     }, [userId, autoRefresh]);

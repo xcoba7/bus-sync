@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { pusher } from '@/lib/pusher';
 
 export async function POST(request) {
     try {
@@ -55,6 +56,19 @@ export async function POST(request) {
         await prisma.notification.createMany({
             data: notifications
         });
+
+        // Trigger real-time notifications via Pusher
+        const pusherPromises = users.map(user =>
+            pusher.trigger(`notifications-${user.id}`, 'new-notification', {
+                type: 'BROADCAST',
+                title: title,
+                message: message,
+                metadata: { senderId: session.user.id },
+                createdAt: new Date(),
+            })
+        );
+
+        await Promise.all(pusherPromises);
 
         return NextResponse.json({ success: true, count: notifications.length });
     } catch (error) {

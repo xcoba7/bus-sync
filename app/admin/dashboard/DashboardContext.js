@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { getTerminology } from '@/lib/terminology';
+import { getPusherClient } from '@/lib/pusher-client';
 
 const DashboardContext = createContext();
 
@@ -90,7 +91,49 @@ export function DashboardProvider({ children }) {
         } else if (status === 'authenticated') {
             fetchData();
             fetchResources();
-            const interval = setInterval(fetchData, 10000);
+
+            const interval = setInterval(fetchData, 15000);
+            const pusher = getPusherClient();
+            let notifChannel = null;
+
+            if (pusher) {
+                // Real-time Bus Tracking
+                const trackingChannel = pusher.subscribe('tracking-channel');
+                trackingChannel.bind('bus-location-update', (data) => {
+                    setActiveBuses(prev => {
+                        const index = prev.findIndex(b => b.id === data.busId);
+                        if (index !== -1) {
+                            const updated = [...prev];
+                            updated[index] = {
+                                ...updated[index],
+                                currentLat: data.lat,
+                                currentLng: data.lng,
+                                lastLocationTime: data.updatedAt
+                            };
+                            return updated;
+                        }
+                        return prev;
+                    });
+                });
+
+                // Real-time Notifications
+                if (session?.user?.id) {
+                    notifChannel = pusher.subscribe(`notifications-${session.user.id}`);
+                    notifChannel.bind('new-notification', (data) => {
+                        setRecentNotifications(prev => [data, ...prev].slice(0, 10));
+                        if (window.Notification && Notification.permission === 'granted') {
+                            new Notification(data.title, { body: data.message });
+                        }
+                    });
+                }
+
+                return () => {
+                    pusher.unsubscribe('tracking-channel');
+                    if (notifChannel) pusher.unsubscribe(`notifications-${session.user.id}`);
+                    clearInterval(interval);
+                };
+            }
+
             return () => clearInterval(interval);
         }
     }, [status, router, session, fetchData, fetchResources]);

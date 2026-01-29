@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { getPusherClient } from '@/lib/pusher-client';
+
 
 const ParentDashboardContext = createContext();
 
@@ -67,13 +69,32 @@ export function ParentDashboardProvider({ children }) {
             router.push('/');
         } else if (status === 'authenticated') {
             fetchData();
-            // Poll for updates every 30 seconds
+
+            // Pusher Real-time Notifications
+            const pusher = getPusherClient();
+            if (pusher && session?.user?.id) {
+                const channel = pusher.subscribe(`notifications-${session.user.id}`);
+                channel.bind('new-notification', (data) => {
+                    setNotifications(prev => [data, ...prev]);
+                    // Optional: Show browser notification
+                    if (window.Notification && Notification.permission === 'granted') {
+                        new Notification(data.title, { body: data.message });
+                    }
+                });
+
+                return () => {
+                    pusher.unsubscribe(`notifications-${session.user.id}`);
+                };
+            }
+
+            // Poll for updates every 30 seconds as fallback
             const interval = setInterval(fetchData, 30000);
             return () => clearInterval(interval);
         }
     }, [status, router, session, fetchData]);
-    
-    
+
+
+
     return (
         <ParentDashboardContext.Provider value={{
             profile, setProfile,

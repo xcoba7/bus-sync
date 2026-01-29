@@ -2,6 +2,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { pusher } from '@/lib/pusher';
+
 
 export async function POST(request) {
     try {
@@ -14,7 +16,8 @@ export async function POST(request) {
         const { qrCode } = await request.json();
 
         if (!qrCode) {
-            return NextResponse.json({ error: 'QR Code is required' }, { status: 400 }); \n
+            return NextResponse.json({ error: 'QR Code is required' }, { status: 400 });
+
         }
 
         // Find passenger by QR code
@@ -26,11 +29,13 @@ export async function POST(request) {
         });
 
         if (!passenger) {
-            return NextResponse.json({ error: 'Invalid QR Code' }, { status: 404 }); \n
+            return NextResponse.json({ error: 'Invalid QR Code' }, { status: 404 });
+
         }
 
         if (!session.user.driverId) {
-            return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 }); \n
+            return NextResponse.json({ error: 'Driver profile not found' }, { status: 404 });
+
         }
 
         const activeTrip = await prisma.trip.findFirst({
@@ -75,7 +80,7 @@ export async function POST(request) {
         }
 
         // Notify guardian
-        await prisma.notification.create({
+        const qrNotif = await prisma.notification.create({
             data: {
                 userId: passenger.guardianId,
                 type: 'STUDENT_BOARDED',
@@ -83,6 +88,13 @@ export async function POST(request) {
                 message: `${passenger.name} has boarded the bus via QR verification`,
             },
         });
+
+        // Trigger Pusher
+        await pusher.trigger(`notifications-${qrNotif.userId}`, 'new-notification', {
+            ...qrNotif,
+            createdAt: new Date(),
+        });
+
 
         return NextResponse.json({
             success: true,
