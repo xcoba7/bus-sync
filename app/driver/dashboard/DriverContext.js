@@ -99,9 +99,11 @@ export function DriverProvider({ children }) {
                     accuracy: accuracy || 0
                 })
             });
+            console.log('📡 Location transmitted to server');
         } catch (error) {
             console.error('Failed to update location:', error);
         }
+
     }, []);
 
     useEffect(() => {
@@ -111,7 +113,7 @@ export function DriverProvider({ children }) {
                 const watchId = navigator.geolocation.watchPosition(
                     updateLocation,
                     (error) => {
-                        console.error('Geolocation error:', error);
+                        console.error(`📍 Geolocation error (${error.code}): ${error.message}`);
                         let message = 'GPS Error: ';
                         switch (error.code) {
                             case error.PERMISSION_DENIED:
@@ -121,18 +123,17 @@ export function DriverProvider({ children }) {
                                 message += 'Location information unavailable.';
                                 break;
                             case error.TIMEOUT:
-                                message += 'GPS request timed out.';
+                                message += 'GPS request timed out. Retrying...';
                                 break;
                             default:
-                                message += 'An unknown error occurred.';
+                                message += error.message || 'An unknown error occurred.';
                         }
                         setGeoError(message);
                     },
-
                     {
                         enableHighAccuracy: true,
-                        maximumAge: 0, // Force fresh location
-                        timeout: 5000  // Faster timeout for better responsiveness
+                        maximumAge: 0,
+                        timeout: 10000 // Increased to 10s for better reliability
                     }
                 );
 

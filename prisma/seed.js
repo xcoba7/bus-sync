@@ -14,6 +14,16 @@ function pickRandom(arr, count = 1) {
     return count === 1 ? shuffled[0] : shuffled.slice(0, count);
 }
 
+const usedLicensePlates = new Set();
+function generateUniqueLicensePlate() {
+    let lp;
+    do {
+        lp = `ABC${randomInt(100, 999)}XY`;
+    } while (usedLicensePlates.has(lp));
+    usedLicensePlates.add(lp);
+    return lp;
+}
+
 async function main() {
     console.log('🚀 Start seeding...\n');
 
@@ -131,7 +141,7 @@ async function main() {
             const bus = await prisma.bus.create({
                 data: {
                     busNumber: `BUS-${String.fromCharCode(65 + schoolIdx)}${String(b + 1).padStart(2, '0')}`,
-                    licensePlate: `ABC${randomInt(100, 999)}XY`,
+                    licensePlate: generateUniqueLicensePlate(),
                     capacity: randomInt(30, 50),
                     model: pickRandom(['Toyota Coaster', 'Mercedes Sprinter', 'Hyundai County', 'Isuzu NQR']),
                     year: randomInt(2018, 2024),
